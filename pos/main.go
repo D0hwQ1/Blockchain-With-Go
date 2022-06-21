@@ -57,7 +57,7 @@ func main() {
 	}
 	defer server.Close()
 
-	go func() {
+	go func() { // 노드가 블록을 생성할 경우, tempBlocks에 담음
 		for candidate := range candidateBlocks {
 			mutex.Lock()
 			tempBlocks = append(tempBlocks, candidate)
@@ -94,7 +94,9 @@ func handleConn(conn net.Conn) { // tcp에 통신한 클라이언트의 블록 �
 
 	go func() {
 		addr = randAddress()
-		io.WriteString(conn, "Enter token balance:")
+		io.WriteString(conn, "현재 블록\n"+spew.Sdump(Blockchain))
+		io.WriteString(conn, "\nYou are Address: "+addr)
+		io.WriteString(conn, "\nEnter token balance: ")
 
 		for {
 			scanBalance := bufio.NewScanner(conn)
@@ -102,21 +104,21 @@ func handleConn(conn net.Conn) { // tcp에 통신한 클라이언트의 블록 �
 
 			balance, err := strconv.Atoi(scanBalance.Text())
 			if err != nil {
-				io.WriteString(conn, fmt.Sprintf("%v not a number: %s\nEnter token balance:", scanBalance.Text(), err))
+				io.WriteString(conn, fmt.Sprintf("%v not a number: %s\nEnter token balance: ", scanBalance.Text(), err))
 				continue
 			}
 
 			validators[addr] = balance
 			fmt.Println(validators)
 
-			io.WriteString(conn, "Enter a new BPM:")
+			io.WriteString(conn, "Enter a new BPM: ")
 
 			scanBPM := bufio.NewScanner(conn)
 			scanBPM.Scan()
 
 			bpm, err := strconv.Atoi(scanBPM.Text())
 			if err != nil {
-				io.WriteString(conn, fmt.Sprintf("%v not a number: %s\nEnter a new BPM:", scanBPM.Text(), err))
+				io.WriteString(conn, fmt.Sprintf("%v not a number: %s\nEnter a new BPM: ", scanBPM.Text(), err))
 				delete(validators, addr)
 				conn.Close()
 			}
@@ -128,14 +130,14 @@ func handleConn(conn net.Conn) { // tcp에 통신한 클라이언트의 블록 �
 			newBlock, err := generateBlock(oldLastIndex, bpm, addr)
 			if err != nil {
 				log.Println(err)
-				io.WriteString(conn, "\nEnter a new BPM:")
+				io.WriteString(conn, "\nEnter a new BPM: ")
 				continue
 			}
 			if isBlockValid(newBlock, oldLastIndex) {
 				candidateBlocks <- newBlock
 			}
 
-			io.WriteString(conn, "\nEnter token balance:")
+			io.WriteString(conn, "\nEnter token balance: ")
 		}
 	}()
 
@@ -160,7 +162,7 @@ func handleConn(conn net.Conn) { // tcp에 통신한 클라이언트의 블록 �
 	}
 }
 
-func pickWinner() { // staking한 수량을 기준으로
+func pickWinner() { // PoS 알고리즘 적용
 	time.Sleep(10 * time.Second)
 	mutex.Lock()
 	temp := tempBlocks
@@ -171,6 +173,7 @@ func pickWinner() { // staking한 수량을 기준으로
 	if len(temp) > 0 {
 
 	OUTER:
+		// 블록은 생성한 노드 참가자 중 누가 많은 지분을 staking 했는지 체크
 		for _, block := range temp {
 			for _, node := range lotteryPool {
 				if block.Validator == node {
