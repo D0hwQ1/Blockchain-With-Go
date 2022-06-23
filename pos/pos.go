@@ -1,4 +1,4 @@
-package main
+package pos
 
 import (
 	"bufio"
@@ -39,7 +39,7 @@ var validators = make(map[string]int)  // 노드(클라이언트)의 맵과 stak
 
 var mutex = &sync.Mutex{}
 
-func main() {
+func Start() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal(err)
