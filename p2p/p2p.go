@@ -1,4 +1,4 @@
-package main
+package p2p
 
 import (
 	"bufio"
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/joho/godotenv"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -42,29 +43,31 @@ var Blockchain []Block
 
 var mutex = &sync.Mutex{}
 
-func main() {
+func Start(port int, secio bool, target string /* 노드(호스트)에 접속하기 위한 피어 입력칸 */) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	t := time.Now()
 	genesisBlock := Block{}
 	genesisBlock = Block{0, t.String(), 0, calculateHash(genesisBlock), ""}
 
 	Blockchain = append(Blockchain, genesisBlock)
 
-	listenF := flag.Int("l", 0, "wait for incoming connections")
-	target := flag.String("d", "", "target peer to dial") // 노드(호스트)에 접속하기 위한 피어 입력칸
-	secio := flag.Bool("secio", false, "enable secio")
 	seed := flag.Int64("seed", 0, "set random seed for id generation")
 	flag.Parse() // flag 받은 값 세팅
 
-	if *listenF == 0 {
+	if port == 0 {
 		log.Fatal("Please provide a port to bind on with -l")
 	}
 
-	ha, err := makeBasicHost(*listenF, *secio, *seed) // p2p 인스턴스 생성
+	ha, err := makeBasicHost(port, secio, *seed) // p2p 인스턴스 생성
 	if err != nil {
 		log.Fatal("makeBasicHost", err)
 	}
 
-	if *target == "" { // target 플래그가 빈칸이면(= 첫 노드[호스트]라면) 연결 대기
+	if target == "" { // target 플래그가 빈칸이면(= 첫 노드[호스트]라면) 연결 대기
 		log.Println("listening for connections")
 		ha.SetStreamHandler("/p2p/1.0.0", handleStream)
 
@@ -72,7 +75,7 @@ func main() {
 	} else { // 노드에 접속한 피어라면, 다른 피어도 접속할 수 있도록 접속한 피어의 p2p 노드 오픈
 		ha.SetStreamHandler("/p2p/1.0.0", handleStream)
 
-		ipfsaddr, err := ma.NewMultiaddr(*target)
+		ipfsaddr, err := ma.NewMultiaddr(target)
 		if err != nil {
 			log.Fatalln("NewMultiaddr", err)
 		}
@@ -244,11 +247,10 @@ func makeBasicHost(listenPort int, secio bool, randseed int64) (host.Host, error
 	addr := basicHost.Addrs()[0] // 0 : 사설 ip | 1 : 로컬 ip
 	fullAddr := addr.Encapsulate(hostAddr)
 
-	file, _ := os.Executable()
 	if secio {
-		log.Printf("Now run \"%s -l %d -d %s -secio\" on a different terminal\n", file, listenPort+1, fullAddr)
+		log.Printf("Now run \"port: %d, addr: %s, secio: true\" on a different terminal\n", listenPort+1, fullAddr)
 	} else {
-		log.Printf("Now run \"%s -l %d -d %s\" on a different terminal\n", file, listenPort+1, fullAddr)
+		log.Printf("Now run \"port: %d, addr: %s, secio: false\" on a different terminal\n", listenPort+1, fullAddr)
 	}
 
 	return basicHost, nil // p2p 인스턴스 반환
