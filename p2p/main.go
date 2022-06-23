@@ -50,36 +50,36 @@ func main() {
 	Blockchain = append(Blockchain, genesisBlock)
 
 	listenF := flag.Int("l", 0, "wait for incoming connections")
-	target := flag.String("d", "", "target peer to dial")
+	target := flag.String("d", "", "target peer to dial") // 노드(호스트)에 접속하기 위한 피어 입력칸
 	secio := flag.Bool("secio", false, "enable secio")
 	seed := flag.Int64("seed", 0, "set random seed for id generation")
-	flag.Parse()
+	flag.Parse() // flag 받은 값 세팅
 
 	if *listenF == 0 {
 		log.Fatal("Please provide a port to bind on with -l")
 	}
 
-	ha, err := makeBasicHost(*listenF, *secio, *seed)
+	ha, err := makeBasicHost(*listenF, *secio, *seed) // p2p 인스턴스 생성
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("makeBasicHost", err)
 	}
 
-	if *target == "" {
+	if *target == "" { // target 플래그가 빈칸이면(= 첫 노드[호스트]라면) 연결 대기
 		log.Println("listening for connections")
 		ha.SetStreamHandler("/p2p/1.0.0", handleStream)
 
 		select {}
-	} else {
+	} else { // 노드에 접속한 피어라면, 다른 피어도 접속할 수 있도록 접속한 피어의 p2p 노드 오픈
 		ha.SetStreamHandler("/p2p/1.0.0", handleStream)
 
 		ipfsaddr, err := ma.NewMultiaddr(*target)
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatalln("NewMultiaddr", err)
 		}
 
-		pid, err := ipfsaddr.ValueForProtocol(ma.P_IPFS)
+		pid, err := ipfsaddr.ValueForProtocol(ma.P_IPFS) // pid 값 가져오기
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatalln("ValueForProtocol", err)
 		}
 
 		peerid, err := peer.Decode(pid)
@@ -89,17 +89,17 @@ func main() {
 
 		targetPeerAddr, _ := ma.NewMultiaddr(
 			fmt.Sprintf("/ipfs/%s", peer.Encode(peerid)))
-		targetAddr := ipfsaddr.Decapsulate(targetPeerAddr)
+		targetAddr := ipfsaddr.Decapsulate(targetPeerAddr) // pid값이 제거 된 '/ip4/사설아이피/tcp/포트넘버' String 할당
 
-		ha.Peerstore().AddAddr(peerid, targetAddr, peerstore.PermanentAddrTTL)
+		ha.Peerstore().AddAddr(peerid, targetAddr, peerstore.PermanentAddrTTL) // 노드(타겟)의 주소를 피어 저장소에 저장
 
 		log.Println("opening stream")
-		s, err := ha.NewStream(context.Background(), peerid, "/p2p/1.0.0")
+		s, err := ha.NewStream(context.Background(), peerid, "/p2p/1.0.0") // 피어와 노드의 통신 Stream 생성
 		if err != nil {
 			log.Fatalln(err)
 		}
 
-		rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
+		rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s)) // 읽기 및 쓰기 모두 사용하기 위한 객체 선언
 
 		go writeData(rw)
 		go readData(rw)
@@ -108,7 +108,7 @@ func main() {
 	}
 }
 
-func handleStream(s net.Stream) { // 호스트가 들어오는 스트림 처리
+func handleStream(s net.Stream) { // 피어가 노드에 연결했을 때, 노드가 Stream을 처리하는 함수
 	log.Println("Got a new stream!")
 
 	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s)) // 읽기 및 쓰기 모두 사용하기 위한 객체 선언
@@ -134,7 +134,7 @@ func readData(rw *bufio.ReadWriter) { // 다른 노드로부터 값(블록체인
 			}
 
 			mutex.Lock()
-			fmt.Printf("받아왔다\n%s", chain, len(chain), len(Blockchain))
+			fmt.Printf("받아왔다\n%v %d %d", chain, len(chain), len(Blockchain))
 			if len(chain) > len(Blockchain) { // 들어오는 체인이 기존 블록보다 길면 최신 네트워크 상태로 변경
 				Blockchain = chain
 				bytes, err := json.MarshalIndent(Blockchain, "", "  ")
@@ -153,7 +153,7 @@ func writeData(rw *bufio.ReadWriter) { // 다른 노드에 값(블록체인)을 
 
 	go func() {
 		for { // 5초마다 현재 블록체인을 모든 노드에게 보여줌
-			time.Sleep(5 * time.Second)
+			time.Sleep(60 * time.Second)
 
 			mutex.Lock()
 			curr, err := json.Marshal(Blockchain)
@@ -164,7 +164,7 @@ func writeData(rw *bufio.ReadWriter) { // 다른 노드에 값(블록체인)을 
 			mutex.Unlock()
 
 			mutex.Lock()
-			if bytes.Compare(prev, curr) != 0 {
+			if !bytes.Equal(prev, curr) {
 				rw.WriteString(fmt.Sprintf("%s\n", string(curr))) // 122줄로 이동
 				rw.Flush()                                        // 연결된 모든 노드에 블록체인 전송
 				prev = curr
@@ -174,7 +174,7 @@ func writeData(rw *bufio.ReadWriter) { // 다른 노드에 값(블록체인)을 
 		}
 	}()
 
-	stdReader := bufio.NewReader(os.Stdin)
+	stdReader := bufio.NewReader(os.Stdin) // 노드(호스트)가 피어로부터 입력을 받는 객체 선언
 
 	for {
 		fmt.Print("> ")
@@ -215,7 +215,7 @@ func writeData(rw *bufio.ReadWriter) { // 다른 노드에 값(블록체인)을 
 
 }
 
-// 서버에서 수신 대기하며, 임의의 피어로 송수신할 p2p 호스트 생성
+// 임의의 피어로 블록체인을 송수신할 p2p 노드(호스트) 생성
 func makeBasicHost(listenPort int, secio bool, randseed int64) (host.Host, error) {
 	var r io.Reader
 	if randseed == 0 { // 시드가 없을 경우, 서버의 로컬 환경에 따라 임의의 시드 생성
