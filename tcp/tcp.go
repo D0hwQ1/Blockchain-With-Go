@@ -1,4 +1,4 @@
-package main
+package tcp
 
 import (
 	"bufio"
@@ -30,8 +30,8 @@ var Blockchain []Block // 체인 선언
 
 var mutex = &sync.Mutex{}
 
-func main() {
-	err := godotenv.Load("../.env")
+func Start() {
+	err := godotenv.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
