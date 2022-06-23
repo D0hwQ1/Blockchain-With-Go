@@ -1,4 +1,4 @@
-module github.com/d0hwq1/mainnet
+module github.com/D0hwQ1/Blockchain-With-Go
 
 go 1.17
 
