@@ -155,7 +155,7 @@ func handleConn(conn net.Conn) { // tcp에 통신한 클라이언트의 블록 �
 			log.Fatal(err)
 		}
 
-		if bytes.Compare(prev, output) != 0 {
+		if !bytes.Equal(prev, output) {
 			io.WriteString(conn, spew.Sdump(Blockchain))
 			prev = output
 		}
