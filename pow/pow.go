@@ -1,4 +1,4 @@
-package main
+package pow
 
 import (
 	"crypto/sha256"
@@ -39,8 +39,8 @@ type Message struct {
 
 var mutex = &sync.Mutex{}
 
-func main() {
-	err := godotenv.Load("../.env")
+func Start() {
+	err := godotenv.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
