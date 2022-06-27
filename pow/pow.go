@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,10 +15,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
 )
 
-const difficulty = 6
+const difficulty = 3
 
 type Block struct {
 	Index      int    // 데이터 레코드 위치
@@ -39,24 +37,18 @@ type Message struct {
 
 var mutex = &sync.Mutex{}
 
-func Start() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func Start(port string) {
 	t := time.Now()
 	genesisBlock := Block{}
 	genesisBlock = Block{0, t.String(), 0, calculateHash(genesisBlock), "", difficulty, ""} // 첫 블록 생성
 	Blockchain = append(Blockchain, genesisBlock)
 	spew.Dump(genesisBlock)
 
-	log.Fatal(run())
+	log.Fatal(run(port))
 }
 
-func run() error {
+func run(httpPort string) error {
 	mux := makeMuxRouter()
-	httpPort := os.Getenv("PORT")
 	log.Println("HTTP Server Listening on port :", httpPort)
 	s := &http.Server{
 		Addr:           ":" + httpPort,
