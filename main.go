@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/D0hwQ1/Blockchain-With-Go/p2p"
+	P2P "github.com/D0hwQ1/Blockchain-With-Go/p2p"
 	"github.com/D0hwQ1/Blockchain-With-Go/pos"
 	"github.com/D0hwQ1/Blockchain-With-Go/pow"
 	"github.com/D0hwQ1/Blockchain-With-Go/tcp"
@@ -12,7 +13,7 @@ import (
 )
 
 func main() {
-	var port int = 0
+	var port int
 
 	for {
 		fmt.Print("사용할 포트 입력: ")
@@ -42,19 +43,19 @@ func main() {
 
 		switch name {
 		case "web":
-			fmt.Println("링크: http://localhost:" + string(port))
+			fmt.Println("링크: http://localhost:" + strconv.Itoa(port))
 			fmt.Println("블록을 생성하실 때에는, 링크에 POST 방식으로 {BPM: value(num)}를 입력하시면 됩니다\n")
-			web.Start()
+			web.Start(strconv.Itoa(port))
 		case "tcp":
 			fmt.Println("접속: nc localhost", port, "\n")
-			tcp.Start()
+			tcp.Start(strconv.Itoa(port))
 		case "pow":
-			fmt.Println("링크: http://localhost:" + string(port))
+			fmt.Println("링크: http://localhost:" + strconv.Itoa(port))
 			fmt.Println("블록을 생성하실 때에는, 링크에 POST 방식으로 {BPM: value(num)}를 입력하시면 됩니다\n")
-			pow.Start()
+			pow.Start(strconv.Itoa(port))
 		case "pos":
 			fmt.Println("접속: nc localhost", port, "\n")
-			pos.Start()
+			pos.Start(strconv.Itoa(port))
 		case "p2p":
 			var yn string
 
@@ -64,16 +65,18 @@ func main() {
 			if strings.ToLower(yn) == "y" || strings.ToLower(yn) == "yes" {
 				fmt.Print("주소 입력: ")
 				fmt.Scanf("%s", &yn)
-				p2p.Start(port, true, yn)
+				fmt.Println()
+
+				P2P.Start(port, true, yn)
 			} else {
 				fmt.Print("secio 적용(y/n): ")
 				fmt.Scanf("%s", &yn)
 				fmt.Println()
 
 				if strings.ToLower(yn) == "y" || strings.ToLower(yn) == "yes" {
-					p2p.Start(port, true, "")
+					P2P.Start(port, true, "")
 				} else {
-					p2p.Start(port, false, "")
+					P2P.Start(port, false, "")
 				}
 			}
 
