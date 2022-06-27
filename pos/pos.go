@@ -12,13 +12,11 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/joho/godotenv"
 )
 
 type Block struct {
@@ -39,11 +37,7 @@ var validators = make(map[string]int)  // 노드(클라이언트)의 맵과 stak
 
 var mutex = &sync.Mutex{}
 
-func Start() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
+func Start(port string) {
 
 	t := time.Now()
 	genesisBlock := Block{}
@@ -51,7 +45,7 @@ func Start() {
 	Blockchain = append(Blockchain, genesisBlock)
 	spew.Dump(genesisBlock)
 
-	server, err := net.Listen("tcp", ":"+os.Getenv("PORT")) // tcp 통신 서버 오픈
+	server, err := net.Listen("tcp", ":"+port) // tcp 통신 서버 오픈
 	if err != nil {
 		log.Fatal(err)
 	}
