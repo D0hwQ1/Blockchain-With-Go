@@ -1,4 +1,4 @@
-package p2p
+package P2P
 
 import (
 	"bufio"
@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/joho/godotenv"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -44,11 +43,6 @@ var Blockchain []Block
 var mutex = &sync.Mutex{}
 
 func Start(port int, secio bool, target string /* 노드(호스트)에 접속하기 위한 피어 입력칸 */) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	t := time.Now()
 	genesisBlock := Block{}
 	genesisBlock = Block{0, t.String(), 0, calculateHash(genesisBlock), ""}
@@ -99,7 +93,7 @@ func Start(port int, secio bool, target string /* 노드(호스트)에 접속하
 		log.Println("opening stream")
 		s, err := ha.NewStream(context.Background(), peerid, "/p2p/1.0.0") // 피어와 노드의 통신 Stream 생성
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatalln("NewStream", err)
 		}
 
 		rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s)) // 읽기 및 쓰기 모두 사용하기 위한 객체 선언
@@ -112,6 +106,7 @@ func Start(port int, secio bool, target string /* 노드(호스트)에 접속하
 }
 
 func handleStream(s net.Stream) { // 피어가 노드에 연결했을 때, 노드가 Stream을 처리하는 함수
+	fmt.Println()
 	log.Println("Got a new stream!")
 
 	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s)) // 읽기 및 쓰기 모두 사용하기 위한 객체 선언
@@ -122,7 +117,7 @@ func handleStream(s net.Stream) { // 피어가 노드에 연결했을 때, 노�
 
 func readData(rw *bufio.ReadWriter) { // 다른 노드로부터 값(블록체인)을 읽어오는 함수
 	for {
-		str, err := rw.ReadString('\n') // 158줄 데이터 받아옴
+		str, err := rw.ReadString('\n') // 방금 블록이 추가된 블록체인을 읽어옴
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -137,7 +132,6 @@ func readData(rw *bufio.ReadWriter) { // 다른 노드로부터 값(블록체인
 			}
 
 			mutex.Lock()
-			fmt.Printf("받아왔다\n%v %d %d", chain, len(chain), len(Blockchain))
 			if len(chain) > len(Blockchain) { // 들어오는 체인이 기존 블록보다 길면 최신 네트워크 상태로 변경
 				Blockchain = chain
 				bytes, err := json.MarshalIndent(Blockchain, "", "  ")
@@ -145,6 +139,8 @@ func readData(rw *bufio.ReadWriter) { // 다른 노드로부터 값(블록체인
 					log.Fatal(err)
 				}
 				fmt.Printf("\n\x1b[32m%s\x1b[0m\n> ", string(bytes)) // 호스트 콘솔에 색상으로 블록체인 출력
+			} else {
+				fmt.Print("\nApplying Blockchain Length...\n> ")
 			}
 			mutex.Unlock()
 		}
@@ -155,31 +151,30 @@ func writeData(rw *bufio.ReadWriter) { // 다른 노드에 값(블록체인)을 
 	prev, _ := json.Marshal(Blockchain)
 
 	go func() {
-		for { // 5초마다 현재 블록체인을 모든 노드에게 보여줌
-			time.Sleep(60 * time.Second)
+		for {
+			time.Sleep(30 * time.Second)
 
 			mutex.Lock()
 			curr, err := json.Marshal(Blockchain)
-			fmt.Printf("\n5초 지났으니 전송한다\n%s\n", curr)
 			if err != nil {
 				log.Print(err)
 			}
 			mutex.Unlock()
 
 			mutex.Lock()
+			// 기존 블록체인과 30초 이후 조회한 블록체인이 다를 경우(추가되었을 경우가 해당)
 			if !bytes.Equal(prev, curr) {
-				rw.WriteString(fmt.Sprintf("%s\n", string(curr))) // 122줄로 이동
-				rw.Flush()                                        // 연결된 모든 노드에 블록체인 전송
+				rw.WriteString(fmt.Sprintf("%s\n", string(curr)))
+				rw.Flush() // 연결된 모든 노드에 블록체인 전송
 				prev = curr
 			}
 			mutex.Unlock()
-
 		}
 	}()
 
 	stdReader := bufio.NewReader(os.Stdin) // 노드(호스트)가 피어로부터 입력을 받는 객체 선언
 
-	for {
+	for { // 블록 생성 반복문
 		fmt.Print("> ")
 		sendData, err := stdReader.ReadString('\n')
 		if err != nil {
@@ -211,8 +206,8 @@ func writeData(rw *bufio.ReadWriter) { // 다른 노드에 값(블록체인)을 
 		spew.Dump(Blockchain)
 
 		mutex.Lock()
-		rw.WriteString(fmt.Sprintf("%s\n", string(bytes))) // 122번째 줄로 이동
-		rw.Flush()                                         // 연결된 모든 노드에 블록체인 정보 전송
+		rw.WriteString(fmt.Sprintf("%s\n", bytes)) // 개행으로 인하여 생성된 블록이 readWrite 함수로 이동
+		rw.Flush()                                 // 연결된 모든 노드에 블록체인 정보 전송
 		mutex.Unlock()
 	}
 
@@ -248,9 +243,9 @@ func makeBasicHost(listenPort int, secio bool, randseed int64) (host.Host, error
 	fullAddr := addr.Encapsulate(hostAddr)
 
 	if secio {
-		log.Printf("Now run \"port: %d, addr: %s, secio: true\" on a different terminal\n", listenPort+1, fullAddr)
+		log.Printf("RUN\n\tport: %d\n\taddr: %s\n\tsecio: true\non a different terminal\n", listenPort+1, fullAddr)
 	} else {
-		log.Printf("Now run \"port: %d, addr: %s, secio: false\" on a different terminal\n", listenPort+1, fullAddr)
+		log.Printf("RUN\n\tport: %d\n\taddr: %s\n\tsecio: false\non a different terminal\n", listenPort+1, fullAddr)
 	}
 
 	return basicHost, nil // p2p 인스턴스 반환
