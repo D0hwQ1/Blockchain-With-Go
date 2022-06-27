@@ -8,13 +8,11 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/joho/godotenv"
 )
 
 type Block struct {
@@ -30,11 +28,7 @@ var Blockchain []Block // 체인 선언
 
 var mutex = &sync.Mutex{}
 
-func Start() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
+func Start(port string) {
 
 	bcServer = make(chan []Block)
 
@@ -44,7 +38,7 @@ func Start() {
 	Blockchain = append(Blockchain, genesisBlock)
 	spew.Dump(genesisBlock)
 
-	server, err := net.Listen("tcp", ":"+os.Getenv("PORT")) // tcp 통신 서버 오픈
+	server, err := net.Listen("tcp", ":"+port) // tcp 통신 서버 오픈
 	if err != nil {
 		log.Fatal(err)
 	}
